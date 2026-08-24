@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live demo</title>
+<style>
+:root {
+  --bg: #0b0e14; --bg-elevated: #10141d; --card: #131824; --card-hover: #171d2b;
+  --border: #232a3a; --border-light: #2d3548;
+  --text: #e8ecf4; --muted: #8791a8; --dim: #5b6478;
+  --accent: #4f7cff; --accent-glow: rgba(79,124,255,.35); --accent-bg: rgba(79,124,255,.12);
+  --success: #33d17a; --success-bg: rgba(51,209,122,.12); --success-glow: rgba(51,209,122,.45);
+  --failed: #ff5c72; --failed-bg: rgba(255,92,114,.14); --failed-glow: rgba(255,92,114,.45);
+  --skipped: #7b8499; --skipped-bg: rgba(123,132,153,.14);
+  --critical: #ffb020; --critical-bg: rgba(255,176,32,.14); --critical-glow: rgba(255,176,32,.45);
+  --radius: 10px; --radius-lg: 14px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  background-image: radial-gradient(circle at 15% 0%, rgba(79,124,255,.06), transparent 45%),
+                    radial-gradient(circle at 85% 15%, rgba(51,209,122,.04), transparent 40%);
+  background-attachment: fixed;
+  color: var(--text); line-height: 1.5;
+}
+code, .detail, .mono {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: .9em;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 1.6rem; letter-spacing: -.02em; margin: 0 0 .35rem; }
+h2 { font-size: 1.08rem; letter-spacing: -.01em; margin: 1.9rem 0 .7rem; }
+h3 { font-size: .95rem; margin: 0 0 .5rem; }
+p { margin: .5rem 0; }
+.muted { color: var(--muted); }
+.dim { color: var(--dim); }
+
+/* demo banner */
+.demo-bar {
+  background: linear-gradient(90deg, rgba(79,124,255,.16), rgba(79,124,255,.04));
+  border-bottom: 1px solid var(--border-light);
+  padding: .55rem 1.75rem; font-size: .82rem; color: var(--muted);
+  display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap;
+}
+.demo-bar strong { color: var(--text); }
+
+/* top bar */
+.topbar {
+  background: rgba(16,20,29,.85); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border); padding: .85rem 1.75rem;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: .75rem; position: sticky; top: 0; z-index: 10;
+}
+.brand { font-weight: 800; letter-spacing: -.01em; color: var(--text); font-size: 1.02rem; }
+.brand::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success); box-shadow: 0 0 8px var(--success-glow); margin-right: .55rem;
+}
+.org-name { color: var(--muted); font-size: .85rem; }
+.main-nav { display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; }
+.main-nav a { color: var(--muted); font-size: .88rem; cursor: pointer; }
+.main-nav a:hover { color: var(--text); text-decoration: none; }
+.main-nav a.active { color: var(--text); font-weight: 600; }
+.main-nav a.active::after {
+  content: ""; display: block; height: 2px; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); margin-top: 3px;
+}
+.container { max-width: 1000px; margin: 0 auto; padding: 1.6rem 1.25rem 5rem; }
+
+/* cards */
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 1.1rem 1.2rem; margin: .85rem 0;
+}
+.card.tight { padding: .85rem 1rem; }
+.eyebrow {
+  text-transform: uppercase; letter-spacing: .09em; font-size: .68rem;
+  color: var(--dim); font-weight: 700; margin: 0 0 .35rem;
+}
+.grid { display: grid; gap: .85rem; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+
+/* flashes */
+.flash { border-radius: var(--radius); padding: .75rem .95rem; margin: .85rem 0; font-size: .92rem; border: 1px solid; }
+.flash-error { background: var(--failed-bg); border-color: rgba(255,92,114,.4); }
+.flash-ok { background: var(--success-bg); border-color: rgba(51,209,122,.4); }
+.flash-warn { background: var(--critical-bg); border-color: rgba(255,176,32,.4); }
+.flash-info { background: var(--accent-bg); border-color: rgba(79,124,255,.4); }
+
+/* pills */
+.pill {
+  display: inline-block; padding: .12rem .5rem; border-radius: 999px;
+  font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+}
+.pill-success { background: var(--success-bg); color: var(--success); }
+.pill-failed { background: var(--failed-bg); color: var(--failed); }
+.pill-skipped { background: var(--skipped-bg); color: var(--skipped); }
+.pill-critical { background: var(--critical-bg); color: var(--critical); }
+.pill-accent { background: var(--accent-bg); color: var(--accent); }
+
+/* forms */
+label { display: block; font-size: .84rem; color: var(--muted); margin-bottom: .3rem; }
+input[type=text], select {
+  width: 100%; padding: .6rem .75rem; background: var(--bg-elevated);
+  border: 1px solid var(--border-light); border-radius: var(--radius);
+  color: var(--text); font-size: .95rem; font-family: inherit;
+}
+input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+button {
+  margin-top: .7rem; padding: .55rem 1.1rem; border-radius: var(--radius);
+  border: 1px solid transparent; background: var(--accent); color: #fff;
+  font-weight: 650; font-size: .9rem; cursor: pointer; font-family: inherit;
+}
+button:hover { filter: brightness(1.1); }
+button.ghost { background: transparent; border-color: var(--border-light); color: var(--text); }
+button.danger { background: var(--failed); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* tables */
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+th {
+  text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--dim); font-weight: 700; padding: .5rem .6rem; border-bottom: 1px solid var(--border);
+}
+td { padding: .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+.clickable { cursor: pointer; }
+.clickable:hover { background: var(--card-hover); }
+
+ul.reason-list, ul.example-list { margin: .4rem 0; padding-left: 1.15rem; }
+ul.reason-list li, ul.example-list li { margin: .3rem 0; font-size: .9rem; }
+.example-list a { cursor: pointer; }
+
+.attention {
+  border-left: 3px solid var(--critical); background: var(--critical-bg);
+  border-radius: var(--radius); padding: .8rem 1rem; margin: .6rem 0;
+}
+.attention.bad { border-left-color: var(--failed); background: var(--failed-bg); }
+.attention .what { font-weight: 650; }
+.attention .why { color: var(--muted); font-size: .87rem; margin: .2rem 0 .5rem; }
+
+.stat { font-size: 1.7rem; font-weight: 750; letter-spacing: -.02em; }
+.hashline { font-size: .74rem; color: var(--dim); word-break: break-all; }
+.footnote { color: var(--dim); font-size: .8rem; margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.hidden { display: none; }
+@media (max-width: 620px) {
+  .topbar, .demo-bar { padding-left: 1rem; padding-right: 1rem; }
+  .main-nav { gap: .8rem; }
+  .main-nav a { font-size: .8rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="demo-bar">
+  <strong>Demo.</strong>
+  <span>Fake company, fake people, no real credentials. Every action here is simulated — nothing is sent to Google, Slack, GitHub or anyone else.</span>
+</div>
+
+<header class="topbar">
+  <span class="brand">Demo</span>
+  <span class="org-name">Northwind Robotics</span>
+  <nav class="main-nav" id="nav"></nav>
+</header>
+
+<main class="container" id="view"></main>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// Seed data — one fictional company, wired so every page has
+// something true to say about the same underlying state.
+// ─────────────────────────────────────────────────────────────
+const PROVIDERS = [
+  { key:'google',    label:'Google Workspace', configured:true,  status:'ok',
+    detail:'Listed the directory successfully.', critical:true,
+    offboard:'Suspend account, then revoke all active sessions',
+    onboard:'Create account with a temporary password' },
+  { key:'entra',     label:'Entra ID',         configured:true,  status:'ok',
+    detail:'Token acquired, user read back.', critical:true,
+    offboard:'Block sign-in, revoke refresh tokens',
+    onboard:'Create member account' },
+  { key:'slack',     label:'Slack',            configured:true,  status:'ok',
+    detail:'SCIM directory reachable.', critical:false,
+    offboard:'Deactivate SCIM user', onboard:'Invite via SCIM' },
+  { key:'github',    label:'GitHub',           configured:true,  status:'failed',
+    detail:'401 Bad credentials — the org token was rotated on 22 Aug and never replaced.', critical:false,
+    offboard:'Remove from organization', onboard:'Invite to organization' },
+  { key:'atlassian', label:'Atlassian',        configured:true,  status:'ok',
+    detail:'Org admin API reachable, directory resolved.', critical:false,
+    offboard:'Disable account via lifecycle API', onboard:'Invite to org + default site role' },
+  { key:'zoom',      label:'Zoom',             configured:false, status:'unconfigured',
+    detail:'No Server-to-Server OAuth credentials saved yet.', critical:false,
+    offboard:'Deactivate user (licence released)', onboard:'Create licensed user' },
+];
+
+const SAFELIST = [
+  { value:'ceo@northwind-robotics.com',        note:'Founder — never touch' },
+  { value:'billing@northwind-robotics.com',    note:'Shared finance mailbox' },
+  { value:'it-admin@northwind-robotics.com',   note:'Break-glass admin' },
+  { value:'*@northwind-contractors.com',       note:'Partner domain, managed elsewhere' },
+];
+
+const EMPLOYEES = [
+  { email:'sarah.chen@northwind-robotics.com', name:'Sarah Chen', dept:'Engineering',
+    role:'Staff Engineer', manager:'priya.raman@northwind-robotics.com', salary:'$182,000',
+    owns:[
+      { provider:'github',    type:'repository',    name:'northwind/flight-controller', sole:true  },
+      { provider:'github',    type:'repository',    name:'northwind/telemetry-ingest',  sole:false },
+      { provider:'atlassian', type:'project',       name:'FCTRL — Flight Control',      sole:true  },
+      { provider:'google',    type:'drive_folder',  name:'Firmware release signing',    sole:true  },
+      { provider:'slack',     type:'channel',       name:'#incident-response',          sole:false },
+    ]},
+  { email:'john@northwind-robotics.com', name:'John Alvarez', dept:'Sales',
+    role:'Account Executive', manager:'dana.okafor@northwind-robotics.com', salary:'$114,000',
+    owns:[
+      { provider:'atlassian', type:'project', name:'SALES — Pipeline', sole:false },
+      { provider:'slack',     type:'channel', name:'#deals-emea',      sole:true  },
+    ]},
+  { email:'priya.raman@northwind-robotics.com', name:'Priya Raman', dept:'Engineering',
+    role:'Engineering Manager', manager:'ceo@northwind-robotics.com', salary:'$205,000', owns:[] },
+  { email:'dana.okafor@northwind-robotics.com', name:'Dana Okafor', dept:'Sales',
+    role:'Sales Director', manager:'ceo@northwind-robotics.com', salary:'$168,000', owns:[] },
+  { email:'ceo@northwind-robotics.com', name:'Miriam Vance', dept:'Executive',
+    role:'Chief Executive', manager:'', salary:'—', owns:[] },
+];
+
+const RUNS = [
+  { id:'run_8f2a91', kind:'Offboard', target:'tomas.lind@northwind-robotics.com', actor:'priya.raman@…',
+    when:'24 Aug 2026, 09:14', status:'paused', dry:false,
+    results:[
+      { p:'google',    action:'disable_user',    s:'success', d:'Account suspended.' },
+      { p:'google',    action:'revoke_sessions',  s:'success', d:'12 active sessions revoked.' },
+      { p:'entra',     action:'disable_user',    s:'success', d:'Sign-in blocked, refresh tokens revoked.' },
+      { p:'slack',     action:'disable_user',    s:'success', d:'SCIM user deactivated.' },
+      { p:'github',    action:'disable_user',    s:'failed',  d:'401 Bad credentials — org token invalid.' },
+      { p:'atlassian', action:'disable_user',    s:'skipped', d:'Run paused before this step.' },
+    ]},
+  { id:'run_7c1e40', kind:'Offboard', target:'marc.dubois@northwind-robotics.com', actor:'priya.raman@…',
+    when:'21 Aug 2026, 16:02', status:'success', dry:false,
+    results:[
+      { p:'google',    action:'disable_user',   s:'success', d:'Account suspended.' },
+      { p:'google',    action:'revoke_sessions', s:'success', d:'3 active sessions revoked.' },
+      { p:'entra',     action:'disable_user',   s:'success', d:'Sign-in blocked.' },
+      { p:'slack',     action:'disable_user',   s:'success', d:'SCIM user deactivated.' },
+      { p:'atlassian', action:'disable_user',   s:'success', d:'Account disabled.' },
+    ]},
+  { id:'run_6b9d33', kind:'Onboard', target:'aisha.bello@northwind-robotics.com', actor:'dana.okafor@…',
+    when:'20 Aug 2026, 11:47', status:'success', dry:false,
+    results:[
+      { p:'google',    action:'create_user', s:'success', d:'Account created with temporary password.' },
+      { p:'entra',     action:'create_user', s:'success', d:'Member account created.' },
+      { p:'slack',     action:'create_user', s:'success', d:'Invited via SCIM.' },
+      { p:'atlassian', action:'create_user', s:'success', d:'Invited to org, granted default site role.' },
+    ]},
+  { id:'run_5a0c17', kind:'Offboard', target:'ceo@northwind-robotics.com', actor:'dana.okafor@…',
+    when:'19 Aug 2026, 08:30', status:'blocked', dry:true,
+    results:[] },
+];
+
+const AUDIT = [
+  { n:41, when:'24 Aug 2026, 09:14', actor:'priya.raman@…', action:'run.offboard.paused',
+    detail:'run_8f2a91 — github disable_user failed', hash:'9f2c…a71b' },
+  { n:40, when:'24 Aug 2026, 09:13', actor:'priya.raman@…', action:'run.offboard.started',
+    detail:'tomas.lind@northwind-robotics.com', hash:'41de…0c93' },
+  { n:39, when:'23 Aug 2026, 17:55', actor:'priya.raman@…', action:'safelist.entry.added',
+    detail:'*@northwind-contractors.com', hash:'b70a…5f22' },
+  { n:38, when:'22 Aug 2026, 10:08', actor:'it-admin@…', action:'provider.credentials.updated',
+    detail:'github — token replaced', hash:'2c88…9e40' },
+  { n:37, when:'21 Aug 2026, 16:02', actor:'priya.raman@…', action:'run.offboard.completed',
+    detail:'marc.dubois@northwind-robotics.com', hash:'e51f…7ab6' },
+  { n:36, when:'19 Aug 2026, 08:30', actor:'dana.okafor@…', action:'run.offboard.blocked',
+    detail:'ceo@northwind-robotics.com — protected by safelist', hash:'0a3d…c118' },
+];
+
+const EXAMPLES = [
+  'What happens if I fire john@acme.com?',
+  'What if we hire Jane Doe?',
+  'Move Sarah from Sales to Engineering',
+  "What if I remove John's Slack access?",
+  'What happens if Microsoft is down during offboarding?',
+  'Fire John but keep his email active for 30 days',
+];
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const prov = k => PROVIDERS.find(p => p.key === k) || { label:k };
+const configured = () => PROVIDERS.filter(p => p.configured);
+const working = () => configured().filter(p => p.status !== 'failed');
+const brokenList = () => configured().filter(p => p.status === 'failed');
+const findEmployee = t => EMPLOYEES.find(e =>
+  e.email.toLowerCase() === t.toLowerCase() ||
+  e.name.toLowerCase() === t.toLowerCase() ||
+  e.name.split(' ')[0].toLowerCase() === t.toLowerCase());
+const isProtected = t => SAFELIST.find(s =>
+  s.value.toLowerCase() === t.toLowerCase() ||
+  (s.value.startsWith('*@') && t.toLowerCase().endsWith(s.value.slice(1).toLowerCase())));
+
+const pill = s => {
+  const m = { success:'pill-success', failed:'pill-failed', skipped:'pill-skipped',
+              paused:'pill-critical', blocked:'pill-failed', ok:'pill-success',
+              unconfigured:'pill-skipped' };
+  const label = { ok:'connected', unconfigured:'not set up' }[s] || s;
+  return `<span class="pill ${m[s]||'pill-skipped'}">${esc(label)}</span>`;
+};
+
+// ─────────────────────────────────────────────────────────────
+// Plain-English parser — mirrors the shapes scenarios.py handles.
+// Deliberately keyword-based: no AI, no network, and it says so
+// when it does not recognise a question rather than guessing.
+// ─────────────────────────────────────────────────────────────
+const OFFBOARD_W = ['fire','fired','fires','firing','offboard','offboards','offboarding',
+                    'terminate','terminates','terminating','let go','lets go','quit','quits',
+                    'resign','resigns','leaves','leaving','departs'];
+const ONBOARD_W  = ['hire','hires','hiring','onboard','onboards','onboarding','new starter',
+                    'new hire','joins','joining','start','starts'];
+const MOVE_W     = ['move','moves','moving','transfer','transfers','promote','promotes','promoted'];
+const REMOVE_W   = ['remove','removes','removing','revoke','revokes','revoking','take away',
+                    'cut off','disable','disables','disabling'];
+const OUTAGE_W   = ['down','outage','offline','unavailable','stopped working','broke','broken',
+                    'fails','failing','failed','goes down','not working','unreachable'];
+const PROVIDER_ALIASES = {
+  google:['google','gsuite','g suite','google workspace','gmail'],
+  entra:['entra','azure','azure ad','microsoft','office 365','o365','microsoft 365'],
+  slack:['slack'], github:['github','git hub'],
+  atlassian:['atlassian','jira','confluence'], zoom:['zoom'],
+};
+
+function parse(q) {
+  const t = ' ' + q.toLowerCase().trim() + ' ';
+  if (!q.trim()) return { kind:'empty', restate:'No question was asked.' };
+
+  const has = ws => ws.some(w => t.includes(' ' + w) || t.includes(w + ' '));
+  const emailMatch = q.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+  let target = emailMatch ? emailMatch[0] : null;
+  if (!target) {
+    for (const e of EMPLOYEES) {
+      const first = e.name.split(' ')[0].toLowerCase();
+      if (t.includes(' ' + first + ' ') || t.includes(" " + first + "'s")) { target = e.email; break; }
+    }
+  }
+  let provider = null;
+  for (const [k, aliases] of Object.entries(PROVIDER_ALIASES))
+    if (aliases.some(a => t.includes(a))) { provider = k; break; }
+
+  const days = (q.match(/(\d+)\s*day/i) || [])[1];
+
+  if (has(OUTAGE_W) && provider)
+    return { kind:'provider_outage', provider, target,
+             restate:`If ${prov(provider).label} is unavailable during a run.` };
+  if (days && has(OFFBOARD_W))
+    return { kind:'delayed_offboard', target, days,
+             restate:`Offboard ${target || 'this person'}, but keep some access for ${days} days.` };
+  if (has(REMOVE_W) && provider)
+    return { kind:'remove_access', provider, target,
+             restate:`Remove ${target || 'this person'}'s ${prov(provider).label} access only.` };
+  if (has(MOVE_W) && target)
+    return { kind:'move', target, restate:`Move ${target} between departments.` };
+  if (has(ONBOARD_W))
+    return { kind:'onboard', target, restate:`Onboard ${target || 'a new starter'}.` };
+  if (has(OFFBOARD_W))
+    return { kind:'offboard', target, restate:`Offboard ${target || 'this person'} — remove all access.` };
+
+  return { kind:'unknown', restate:"Couldn't tell what you're asking." };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Pages
+// ─────────────────────────────────────────────────────────────
+const PAGES = ['dashboard','whatif','offboard','runs','employees','providers','safelist','audit'];
+const LABELS = { dashboard:'Dashboard', whatif:'What if', offboard:'Offboard', runs:'Runs',
+                 employees:'Employees', providers:'Providers', safelist:'Safelist', audit:'Audit' };
+let state = { page:'dashboard', prompt:'', run:null, employee:null };
+
+function renderNav() {
+  document.getElementById('nav').innerHTML = PAGES.map(p =>
+    `<a data-go="${p}" class="${state.page===p?'active':''}">${LABELS[p]}</a>`).join('');
+}
+
+function pageDashboard() {
+  const paused = RUNS.filter(r => r.status === 'paused');
+  const broken = brokenList();
+  return `
+  <h1>Dashboard</h1>
+  <p class="muted">What needs attention first, then everything else.</p>
+
+  <h2>Needs attention</h2>
+  ${paused.map(r => `
+    <div class="attention bad">
+      <div class="what">A run stopped partway — ${esc(r.target)} may still have access</div>
+      <div class="why">${esc(r.id)} paused at GitHub on ${esc(r.when)}. Everything after that step never ran.</div>
+      <button data-run="${r.id}">Review this run</button>
+    </div>`).join('')}
+  ${broken.map(p => `
+    <div class="attention">
+      <div class="what">${esc(p.label)} is not answering</div>
+      <div class="why">${esc(p.detail)} Until it's fixed, offboarding will not remove ${esc(p.label)} access for anyone.</div>
+      <button class="ghost" data-go="providers">Fix the connection</button>
+    </div>`).join('')}
+
+  <h2>At a glance</h2>
+  <div class="grid">
+    <div class="card tight"><p class="eyebrow">Systems connected</p>
+      <div class="stat">${working().length} <span class="muted" style="font-size:.9rem">of ${PROVIDERS.length}</span></div>
+      <p class="dim" style="font-size:.82rem;margin:0">${broken.length} failing · ${PROVIDERS.length-configured().length} not set up</p></div>
+    <div class="card tight"><p class="eyebrow">Protected accounts</p>
+      <div class="stat">${SAFELIST.length}</div>
+      <p class="dim" style="font-size:.82rem;margin:0">Can never be offboarded</p></div>
+    <div class="card tight"><p class="eyebrow">People on file</p>
+      <div class="stat">${EMPLOYEES.length}</div>
+      <p class="dim" style="font-size:.82rem;margin:0">With owned resources tagged</p></div>
+    <div class="card tight"><p class="eyebrow">Audit entries</p>
+      <div class="stat">${AUDIT[0].n}</div>
+      <p class="dim" style="font-size:.82rem;margin:0">Hash chain intact</p></div>
+  </div>
+
+  <h2>Recent activity</h2>
+  <div class="card" style="padding:.3rem .5rem">
+    <table><tbody>
+    ${RUNS.map(r => `<tr class="clickable" data-run="${r.id}">
+      <td><code>${esc(r.id)}</code></td>
+      <td>${esc(r.kind)}${r.dry?' <span class="pill pill-accent">dry run</span>':''}</td>
+      <td>${esc(r.target)}</td>
+      <td class="muted">${esc(r.when)}</td>
+      <td>${pill(r.status)}</td>
+    </tr>`).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+function pageWhatIf() {
+  const q = state.prompt;
+  let out = '';
+  if (q) out = whatIfReport(q);
+  return `
+  <h1>What if...</h1>
+  <p class="muted">Ask in plain English. This is a <strong>simulation</strong> — it reads your real
+  settings and checks your real connections, but it never disables, creates, or signs anyone out.
+  Nothing changes until you choose to run it.</p>
+
+  <div class="card">
+    <label for="prompt">Your question</label>
+    <input type="text" id="prompt" value="${esc(q)}" placeholder="What happens if I fire john@northwind-robotics.com?">
+    <button id="simulate">Simulate</button>
+  </div>
+
+  ${!q ? `<div class="card"><p class="eyebrow">Things you can ask</p><ul class="example-list">
+    ${EXAMPLES.map(e => `<li><a data-ask="${esc(e)}">${esc(e)}</a></li>`).join('')}
+  </ul></div>` : ''}
+
+  ${out}`;
+}
+
+function whatIfReport(q) {
+  const s = parse(q);
+  let html = `<div class="card"><p class="eyebrow">Understood as</p>
+    <p><strong>${esc(s.restate)}</strong></p>`;
+
+  if (s.kind === 'unknown' || s.kind === 'empty') {
+    html += `<p class="muted">Rather than analysing the wrong thing, here is what it can answer:</p>
+      <ul class="example-list">${EXAMPLES.map(e => `<li><a data-ask="${esc(e)}">${esc(e)}</a></li>`).join('')}</ul></div>`;
+    return html;
+  }
+  html += `</div>`;
+
+  const target = s.target;
+  const emp = target ? findEmployee(target) : null;
+  const prot = target ? isProtected(target) : null;
+
+  // Headline
+  if (prot) {
+    html += `<div class="flash flash-error"><strong>Blocked.</strong> ${esc(target)} is on the
+      safelist (${esc(prot.note)}). The run is refused before any system is contacted.</div>`;
+  } else if (s.kind === 'provider_outage') {
+    const p = prov(s.provider);
+    html += p.critical
+      ? `<div class="flash flash-error"><strong>The run would pause partway through.</strong>
+         ${esc(p.label)} is marked critical, so the run stops rather than reporting a clean finish
+         it can't stand behind. Steps after it would not run, and the person would keep that access
+         until you re-run.</div>`
+      : `<div class="flash flash-warn"><strong>The run would continue without ${esc(p.label)}.</strong>
+         ${esc(p.label)} is not critical, so its step is recorded as failed and the remaining
+         systems still get cleaned up. You would need to remove ${esc(p.label)} access by hand.</div>`;
+  } else if (working().length === 0) {
+    html += `<div class="flash flash-error"><strong>Nothing would actually happen.</strong>
+      Every connected system is currently failing.</div>`;
+  } else if (brokenList().length) {
+    html += `<div class="flash flash-warn"><strong>Would run, but incompletely.</strong>
+      ${brokenList().map(p=>esc(p.label)).join(', ')} is failing right now, so that access would
+      not be removed.</div>`;
+  } else {
+    html += `<div class="flash flash-ok"><strong>Would proceed normally.</strong></div>`;
+  }
+
+  // Per-scenario body
+  if (s.kind === 'delayed_offboard') {
+    html += `<h2>What this means</h2><ul class="reason-list">
+      <li>Access would be removed everywhere <em>except</em> the mailbox, immediately.</li>
+      <li>Keeping email live for ${esc(s.days)} days is not something that can be scheduled for you —
+          there is no timer, and it will not silently remember. You would exclude Google Workspace
+          now and run a second offboard in ${esc(s.days)} days.</li>
+      <li>Until then that mailbox is a live, credentialed account belonging to someone who has left.</li>
+    </ul>`;
+  }
+  if (s.kind === 'remove_access') {
+    html += `<h2>What this means</h2><ul class="reason-list">
+      <li>Only ${esc(prov(s.provider).label)} would be touched. Every other system keeps working.</li>
+      <li>This is not an offboarding — the person keeps their email, their laptop login and their
+          other tools.</li>
+    </ul>`;
+  }
+  if (s.kind === 'move') {
+    html += `<h2>What this means</h2><ul class="reason-list">
+      <li>A department move changes the record on file. It does not add or remove any access on its own.</li>
+      <li>Anything they own stays theirs after the move — review the owned resources below.</li>
+    </ul>`;
+  }
+
+  // Provider table
+  const isOnboard = s.kind === 'onboard';
+  html += `<h2>Target: <code>${esc(target || 'not named')}</code></h2>
+  <div class="card" style="padding:.3rem .5rem"><table>
+    <thead><tr><th>System</th><th>Would do</th><th>Connection</th></tr></thead><tbody>`;
+  for (const p of PROVIDERS) {
+    let would, cls = '';
+    if (!p.configured) { would = 'Nothing — not set up'; cls = 'dim'; }
+    else if (prot) { would = 'Nothing — blocked by safelist'; cls = 'dim'; }
+    else if (s.kind === 'remove_access') {
+      would = p.key === s.provider ? p.offboard : 'Nothing — not part of this request';
+      if (p.key !== s.provider) cls = 'dim';
+    }
+    else if (s.kind === 'move') { would = 'Nothing — record change only'; cls = 'dim'; }
+    else if (s.kind === 'delayed_offboard' && p.key === 'google') {
+      would = 'Nothing yet — you asked to keep email'; cls = 'dim';
+    }
+    else if (s.kind === 'provider_outage' && p.key === s.provider) {
+      would = p.offboard + ' — would fail'; cls = '';
+    }
+    else if (p.status === 'failed') { would = p.offboard + ' — would fail'; }
+    else { would = isOnboard ? p.onboard : p.offboard; }
+    html += `<tr><td>${esc(p.label)}${p.critical?' <span class="pill pill-critical">critical</span>':''}</td>
+      <td class="${cls}">${esc(would)}</td><td>${pill(p.status)}</td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  // Employee impact
+  if (emp && !isOnboard) {
+    const sole = emp.owns.filter(o => o.sole);
+    html += `<h2>Who picks this up</h2>`;
+    if (!emp.owns.length) {
+      html += `<div class="card"><p class="muted">${esc(emp.name)} has a profile on file
+        (${esc(emp.role)}, ${esc(emp.dept)}) but no resources tagged as theirs. Nothing is known
+        to be left without an owner — though nothing has been scanned automatically either.</p></div>`;
+    } else {
+      html += `<div class="card">
+        <p><strong>${esc(emp.name)}</strong> — ${esc(emp.role)}, ${esc(emp.dept)}.
+        Manager on file: ${esc(emp.manager || 'none')}.</p>
+        ${sole.length ? `<div class="flash flash-warn" style="margin:.6rem 0">
+          <strong>${sole.length} thing${sole.length>1?'s':''} would have no owner at all.</strong></div>` : ''}
+        <table><thead><tr><th>Resource</th><th>System</th><th>After they leave</th></tr></thead><tbody>
+        ${emp.owns.map(o => `<tr>
+          <td>${esc(o.name)}<div class="dim" style="font-size:.78rem">${esc(o.type)}</div></td>
+          <td>${esc(prov(o.provider).label)}</td>
+          <td>${o.sole
+            ? `<span class="pill pill-failed">no owner</span><div class="muted" style="font-size:.82rem;margin-top:.25rem">Reassign to ${esc(emp.manager||'a manager')} first</div>`
+            : `<span class="pill pill-success">others remain</span>`}</td></tr>`).join('')}
+        </tbody></table>
+        <p class="muted" style="margin-top:.8rem">Salary on file for this role: <strong>${esc(emp.salary)}</strong>
+        — the exact figure someone typed in, not an estimate.</p>
+      </div>`;
+    }
+  } else if (target && !emp && !isOnboard) {
+    html += `<h2>Who picks this up</h2><div class="card"><p class="muted">
+      No employee profile on file for ${esc(target)}, so there's no way to say what they own.
+      It will not guess. <a data-go="employees">Add them</a> to see impact.</p></div>`;
+  }
+
+  html += `<div class="flash flash-info"><strong>Nothing has happened yet.</strong>
+    This was a simulation. To act on it, go to
+    <a data-go="offboard">${isOnboard ? 'Onboard' : 'Offboard'}</a> and run it — with a dry run first.</div>`;
+  return html;
+}
+
+let offboardResult = null;
+function pageOffboard() {
+  return `
+  <h1>Offboard</h1>
+  <p class="muted">Run it for real, or run it dry first. A dry run contacts nothing —
+  it reports exactly which calls would be made.</p>
+  <div class="card">
+    <label for="target">Who is leaving</label>
+    <select id="target">
+      ${EMPLOYEES.map(e => `<option value="${esc(e.email)}">${esc(e.name)} — ${esc(e.email)}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+      <button id="dry">Dry run</button>
+      <button id="real" class="danger">Run for real</button>
+    </div>
+    <p class="dim" style="font-size:.82rem;margin-top:.6rem">In this demo both buttons simulate.
+    In the product, "Run for real" is the only one that changes anything.</p>
+  </div>
+  ${offboardResult || ''}`;
+}
+
+function runOffboard(target, dry) {
+  const prot = isProtected(target);
+  if (prot) {
+    offboardResult = `<div class="flash flash-error"><strong>Blocked before anything ran.</strong>
+      ${esc(target)} is on the safelist (${esc(prot.note)}). The safelist is checked against the
+      target and every per-provider identifier, so this cannot be worked around by using a
+      different username for the same person.</div>`;
+    return;
+  }
+  let rows = '', paused = false;
+  for (const p of PROVIDERS) {
+    if (paused) {
+      rows += row(p.label, 'skipped', 'Run paused before this step.');
+      continue;
+    }
+    if (!p.configured) { rows += row(p.label, 'skipped', 'Not set up — no action taken.'); continue; }
+    if (dry) { rows += row(p.label, 'skipped', `[dry run] Would ${p.offboard.toLowerCase()}.`); continue; }
+    if (p.status === 'failed') {
+      rows += row(p.label, 'failed', p.detail);
+      if (p.critical) paused = true;
+      continue;
+    }
+    rows += row(p.label, 'success', p.offboard + '.');
+  }
+  const head = dry
+    ? `<div class="flash flash-info"><strong>Dry run complete.</strong> Nothing was contacted and
+       nothing changed. This is what would happen if you ran it for real.</div>`
+    : `<div class="flash flash-warn"><strong>Finished with one failure.</strong> GitHub access was
+       <em>not</em> removed — ${esc(target)} may still be in the organization. Fix the credential
+       and re-run; already-completed steps are safe to repeat.</div>`;
+  offboardResult = `${head}<div class="card" style="padding:.3rem .5rem"><table>
+    <thead><tr><th>System</th><th>Result</th><th>Detail</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="dim" style="font-size:.82rem">Recorded as a new entry in the audit chain, attributed to
+    the API key that made the request — not to a name typed into a form.</p>`;
+  function row(label, s, d) { return `<tr><td>${esc(label)}</td><td>${pill(s)}</td><td class="muted">${esc(d)}</td></tr>`; }
+}
+
+function pageRuns() {
+  if (state.run) {
+    const r = RUNS.find(x => x.id === state.run);
+    return `
+    <p><a data-go="runs">← All runs</a></p>
+    <h1>${esc(r.kind)} — <code>${esc(r.target)}</code></h1>
+    <p class="muted">${esc(r.id)} · ${esc(r.when)} · started by ${esc(r.actor)} · ${pill(r.status)}</p>
+    ${r.status === 'paused' ? `<div class="flash flash-error"><strong>This run stopped partway.</strong>
+      Steps after GitHub never ran, so this person may still have access to them. Re-running is safe.</div>` : ''}
+    ${r.status === 'blocked' ? `<div class="flash flash-error"><strong>Refused.</strong> The target is
+      on the safelist. No system was contacted.</div>` : ''}
+    ${r.results.length ? `<div class="card" style="padding:.3rem .5rem"><table>
+      <thead><tr><th>System</th><th>Action</th><th>Result</th><th>Detail</th></tr></thead><tbody>
+      ${r.results.map(x => `<tr><td>${esc(prov(x.p).label)}</td><td class="mono">${esc(x.action)}</td>
+        <td>${pill(x.s)}</td><td class="muted">${esc(x.d)}</td></tr>`).join('')}
+      </tbody></table></div>` : ''}`;
+  }
+  return `
+  <h1>Runs</h1>
+  <p class="muted">Every onboard and offboard, who ran it, and what each system actually did.</p>
+  <div class="card" style="padding:.3rem .5rem"><table>
+    <thead><tr><th>Run</th><th>Type</th><th>Person</th><th>When</th><th>By</th><th>Result</th></tr></thead><tbody>
+    ${RUNS.map(r => `<tr class="clickable" data-run="${r.id}">
+      <td><code>${esc(r.id)}</code></td>
+      <td>${esc(r.kind)}${r.dry?' <span class="pill pill-accent">dry</span>':''}</td>
+      <td>${esc(r.target)}</td><td class="muted">${esc(r.when)}</td>
+      <td class="muted">${esc(r.actor)}</td><td>${pill(r.status)}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+function pageEmployees() {
+  if (state.employee) {
+    const e = EMPLOYEES.find(x => x.email === state.employee);
+    return `
+    <p><a data-go="employees">← All people</a></p>
+    <h1>${esc(e.name)}</h1>
+    <p class="muted">${esc(e.role)} · ${esc(e.dept)} · <code>${esc(e.email)}</code></p>
+    <div class="grid">
+      <div class="card tight"><p class="eyebrow">Manager</p>${esc(e.manager || '—')}</div>
+      <div class="card tight"><p class="eyebrow">Salary on file</p>${esc(e.salary)}
+        <p class="dim" style="font-size:.78rem;margin:.2rem 0 0">Encrypted at rest</p></div>
+      <div class="card tight"><p class="eyebrow">Tagged resources</p>${e.owns.length}
+        <p class="dim" style="font-size:.78rem;margin:.2rem 0 0">${e.owns.filter(o=>o.sole).length} sole-owned</p></div>
+    </div>
+    <h2>What they own</h2>
+    ${e.owns.length ? `<div class="card" style="padding:.3rem .5rem"><table>
+      <thead><tr><th>Resource</th><th>Type</th><th>System</th><th>Sole owner</th></tr></thead><tbody>
+      ${e.owns.map(o => `<tr><td>${esc(o.name)}</td><td class="muted">${esc(o.type)}</td>
+        <td>${esc(prov(o.provider).label)}</td>
+        <td>${o.sole ? '<span class="pill pill-critical">yes</span>' : '<span class="muted">no</span>'}</td></tr>`).join('')}
+      </tbody></table></div>` : `<div class="card"><p class="muted">Nothing tagged yet.</p></div>`}
+    <p class="dim" style="font-size:.82rem">Ownership is entered by hand, not scanned from each
+    system's API. A person recording what they already know is verifiable; a half-accurate
+    automated scan is not.</p>
+    <p><a data-ask="What happens if I fire ${esc(e.email)}?">Simulate offboarding ${esc(e.name.split(' ')[0])} →</a></p>`;
+  }
+  return `
+  <h1>People</h1>
+  <p class="muted">Context that can't be inferred: who reports to whom, and who owns what.</p>
+  <div class="card" style="padding:.3rem .5rem"><table>
+    <thead><tr><th>Name</th><th>Role</th><th>Department</th><th>Owns</th></tr></thead><tbody>
+    ${EMPLOYEES.map(e => `<tr class="clickable" data-emp="${esc(e.email)}">
+      <td>${esc(e.name)}<div class="dim" style="font-size:.78rem">${esc(e.email)}</div></td>
+      <td>${esc(e.role)}</td><td>${esc(e.dept)}</td>
+      <td>${e.owns.length ? esc(e.owns.length) + (e.owns.filter(o=>o.sole).length
+        ? ` <span class="pill pill-critical">${e.owns.filter(o=>o.sole).length} sole</span>` : '')
+        : '<span class="dim">—</span>'}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+function pageProviders() {
+  return `
+  <h1>Systems</h1>
+  <p class="muted">Credentials are encrypted before they're stored, and never shown again after saving.</p>
+  ${PROVIDERS.map(p => `<div class="card">
+    <div style="display:flex;justify-content:space-between;gap:.75rem;flex-wrap:wrap;align-items:baseline">
+      <h3>${esc(p.label)} ${p.critical ? '<span class="pill pill-critical">critical</span>' : ''}</h3>
+      ${pill(p.status)}
+    </div>
+    <p class="muted" style="font-size:.88rem;margin:.35rem 0">${esc(p.detail)}</p>
+    <p class="dim" style="font-size:.82rem;margin:0">Offboarding: ${esc(p.offboard)} · Onboarding: ${esc(p.onboard)}</p>
+    ${p.status === 'failed' ? `<button class="ghost">Replace credentials</button>` : ''}
+    ${!p.configured ? `<button class="ghost">Set up ${esc(p.label)}</button>` : ''}
+  </div>`).join('')}
+  <p class="dim" style="font-size:.82rem">Critical systems stop a run when they fail. Everything else
+  records the failure and lets the rest of the run finish.</p>`;
+}
+
+function pageSafelist() {
+  return `
+  <h1>Protected accounts</h1>
+  <p class="muted">Accounts that will never be touched, no matter who asks or how the request is worded.</p>
+  <div class="card" style="padding:.3rem .5rem"><table>
+    <thead><tr><th>Account</th><th>Why</th></tr></thead><tbody>
+    ${SAFELIST.map(s => `<tr><td><code>${esc(s.value)}</code></td><td class="muted">${esc(s.note)}</td></tr>`).join('')}
+  </tbody></table></div>
+  <div class="flash flash-info">Checked twice: against a deployment-wide list the operator controls,
+  and against this organization's own list. Every per-system identifier is checked too, so a GitHub
+  username can't be used to reach someone protected by their email address.</div>
+  <p><a data-ask="What happens if I fire ceo@northwind-robotics.com?">See what happens if someone tries →</a></p>`;
+}
+
+function pageAudit() {
+  return `
+  <h1>Audit trail</h1>
+  <p class="muted">Every entry carries a hash of the one before it. Change or delete any row and
+  every hash after it stops matching — tampering shows, rather than being taken on trust.</p>
+  <div class="flash flash-ok"><strong>Chain verified.</strong> ${AUDIT[0].n} entries, no breaks.</div>
+  <div class="card" style="padding:.3rem .5rem"><table>
+    <thead><tr><th>#</th><th>When</th><th>Who</th><th>What</th><th>Hash</th></tr></thead><tbody>
+    ${AUDIT.map(a => `<tr><td class="dim">${a.n}</td><td class="muted">${esc(a.when)}</td>
+      <td>${esc(a.actor)}</td>
+      <td class="mono">${esc(a.action)}<div class="muted" style="font-size:.82rem;font-family:inherit">${esc(a.detail)}</div></td>
+      <td class="hashline">${esc(a.hash)}</td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="dim" style="font-size:.82rem">"Who" comes from the API key that made the request, so the
+  trail names whoever actually acted — not a name someone typed into a field.</p>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Render + events
+// ─────────────────────────────────────────────────────────────
+function render() {
+  renderNav();
+  const map = { dashboard:pageDashboard, whatif:pageWhatIf, offboard:pageOffboard, runs:pageRuns,
+                employees:pageEmployees, providers:pageProviders, safelist:pageSafelist, audit:pageAudit };
+  document.getElementById('view').innerHTML = map[state.page]() + `
+    <p class="footnote">This is a demo running on fake data in your browser.
+    The real product is self-hosted, talks to your own provider credentials, and is bought once —
+    no subscription, no phone-home.</p>`;
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener('click', e => {
+  const go = e.target.closest('[data-go]');
+  if (go) { state.page = go.dataset.go; state.run = null; state.employee = null; render(); return; }
+
+  const ask = e.target.closest('[data-ask]');
+  if (ask) { state.page = 'whatif'; state.prompt = ask.dataset.ask; render(); return; }
+
+  const run = e.target.closest('[data-run]');
+  if (run) { state.page = 'runs'; state.run = run.dataset.run; render(); return; }
+
+  const emp = e.target.closest('[data-emp]');
+  if (emp) { state.page = 'employees'; state.employee = emp.dataset.emp; render(); return; }
+
+  if (e.target.id === 'simulate') {
+    state.prompt = document.getElementById('prompt').value; render(); return;
+  }
+  if (e.target.id === 'dry' || e.target.id === 'real') {
+    runOffboard(document.getElementById('target').value, e.target.id === 'dry'); render(); return;
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'prompt') {
+    state.prompt = e.target.value; render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
